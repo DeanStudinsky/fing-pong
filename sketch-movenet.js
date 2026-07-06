@@ -14,6 +14,10 @@ let lockX = 0;
 let lockY = 0;
 let locked = false;
 
+// UI state
+let showSettings = true;   // settings buttons visible (tap the gear to hide)
+let cameraOnly = false;    // true = show raw camera feed, pause the game
+
 function preload() {
   // flipped: true so your movements mirror naturally on the projector.
   bodyPose = ml5.bodyPose("MoveNet", { flipped: true });
@@ -56,9 +60,104 @@ function draw() {
   background(0);
 
   trackWrist();
-  drawGame();
-  drawDebugCamera();
-  moveBall();
+
+  if (cameraOnly) {
+    drawCameraFull();      // raw camera, no game
+  } else {
+    drawGame();
+    drawDebugCamera();
+    moveBall();
+  }
+
+  drawUI();                // settings buttons / gear
+}
+
+// Full-screen raw camera view (game paused) — for aiming the phone.
+function drawCameraFull() {
+  if (!video || !video.width) return;
+
+  let vw = video.width;
+  let vh = video.height;
+  let s = min(width / vw, height / vh);   // "contain" fit, keep whole frame visible
+  let dw = vw * s;
+  let dh = vh * s;
+  let ox = (width - dw) / 2;
+  let oy = (height - dh) / 2;
+
+  image(video, ox, oy, dw, dh);   // ml5 flipped:true already mirrors it
+
+  if (locked) {
+    let lx = ox + (lockX / vw) * dw;
+    let ly = oy + (lockY / vh) * dh;
+    stroke(0, 255, 0);
+    strokeWeight(3);
+    noFill();
+    circle(lx, ly, 30);
+    line(lx - 18, ly, lx + 18, ly);
+    line(lx, ly - 18, lx, ly + 18);
+  }
+
+  noStroke();
+  fill(255, 200);
+  textAlign(CENTER, TOP);
+  textSize(min(width, height) * 0.035);
+  text("CAMERA VIEW   WRIST LOCK: " + (locked ? "YES" : "NO"), width / 2, oy + 8);
+}
+
+// ---------- On-screen settings UI ----------
+
+function uiButtons() {
+  let s = min(width, height) * 0.11;
+  let pad = s * 0.28;
+  let y = height - s - pad;
+  let x = width - s - pad;   // rightmost slot = gear
+
+  let btns = [{ id: "gear", label: showSettings ? "x" : "⚙", x: x, y: y, w: s, h: s }];
+
+  if (showSettings) {
+    let items = [
+      { id: "full", label: "full" },
+      { id: "cam",  label: cameraOnly ? "game" : "cam" }
+    ];
+    for (let it of items) {
+      x -= (s + pad);
+      btns.push({ id: it.id, label: it.label, x: x, y: y, w: s, h: s });
+    }
+  }
+  return btns;
+}
+
+function drawUI() {
+  rectMode(CORNER);
+  textAlign(CENTER, CENTER);
+  for (let b of uiButtons()) {
+    noStroke();
+    if (b.id === "cam" && cameraOnly) fill(0, 170, 90, 210);
+    else fill(255, 45);
+    rect(b.x, b.y, b.w, b.h, 10);
+
+    fill(255, 210);
+    textSize(b.w * (b.label.length > 1 ? 0.30 : 0.5));
+    text(b.label, b.x + b.w / 2, b.y + b.h / 2);
+  }
+}
+
+function doButton(id) {
+  if (id === "gear")     showSettings = !showSettings;
+  else if (id === "cam") cameraOnly = !cameraOnly;
+  else if (id === "full") fullscreen(!fullscreen());
+}
+
+function handleTap(px, py) {
+  for (let b of uiButtons()) {
+    if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
+      doButton(b.id);
+      return;
+    }
+  }
+  // Tapping anywhere else goes fullscreen and satisfies iOS's
+  // "user gesture required" rule to start the camera.
+  fullscreen(true);
 }
 
 function trackWrist() {
@@ -219,14 +318,20 @@ function resetBall() {
   }
 }
 
+function keyPressed() {
+  if (key === "f" || key === "F") fullscreen(!fullscreen());
+  if (key === "c" || key === "C") cameraOnly = !cameraOnly;     // camera view
+  if (key === "h" || key === "H") showSettings = !showSettings; // hide buttons
+}
+
 // iOS requires a user gesture before the camera and fullscreen can start.
 function touchStarted() {
-  fullscreen(true);
+  handleTap(mouseX, mouseY);
   return false;
 }
 
 function mousePressed() {
-  fullscreen(true);
+  handleTap(mouseX, mouseY);
 }
 
 function windowResized() {

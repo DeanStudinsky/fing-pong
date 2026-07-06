@@ -1,4 +1,5 @@
 let video;
+let camFacing = "environment";   // rear camera by default (points at your wristband)
 
 let paddleX, paddleY, paddleW, paddleH;
 let aiX, aiY;
@@ -14,30 +15,22 @@ let lockX = 0;
 let lockY = 0;
 let locked = false;
 
+// UI state
+let showSettings = true;   // settings buttons visible (tap the gear to hide)
+let cameraOnly = false;    // true = show raw camera feed, pause the game
+
 function setup() {
   createCanvas(windowWidth, windowHeight);
   pixelDensity(1);
   frameRate(60);
 
-  video = createCapture({
-    video: {
-      facingMode: "environment",
-      width: { ideal: 360 },
-      height: { ideal: 640 }
-    },
-    audio: false
-  });
-
-  video.size(180, 320);
-  video.hide();
+  startCamera(camFacing);
 
   paddleW = width * 0.20;
   paddleH = height * 0.035;
 
   paddleX = width / 2;
-
-  // Paddle stays in bottom third
-  paddleY = height * 0.84;
+  paddleY = height * 0.84;   // paddle stays in bottom third
 
   aiX = width / 2;
   aiY = height * 0.10;
@@ -45,47 +38,34 @@ function setup() {
   resetBall();
 }
 
+function startCamera(facing) {
+  if (video) video.remove();
+  video = createCapture({
+    video: {
+      facingMode: facing,
+      width: { ideal: 360 },
+      height: { ideal: 640 }
+    },
+    audio: false
+  });
+  video.size(180, 320);
+  video.hide();
+}
+
 function draw() {
   background(0);
 
   trackReflector();
-  drawGame();
-  drawDebugCamera();
-  drawTouchButtons();
-  moveBall();
-}
 
-// On-screen threshold buttons (bottom-right) so you can calibrate on the
-// projector by tapping — no keyboard needed.
-function thresholdButtons() {
-  let s = min(width, height) * 0.10;
-  let pad = s * 0.35;
-  let y = height - s - pad;
-  return {
-    size: s,
-    minus: { x: width - s * 2 - pad * 2, y: y },
-    plus:  { x: width - s - pad,         y: y }
-  };
-}
+  if (cameraOnly) {
+    drawCameraFull();      // raw camera, no game
+  } else {
+    drawGame();
+    drawDebugCamera();
+    moveBall();
+  }
 
-function drawTouchButtons() {
-  let b = thresholdButtons();
-  rectMode(CORNER);
-  textAlign(CENTER, CENTER);
-  textSize(b.size * 0.55);
-
-  noStroke();
-  fill(255, 40);
-  rect(b.minus.x, b.minus.y, b.size, b.size, 10);
-  rect(b.plus.x, b.plus.y, b.size, b.size, 10);
-
-  fill(255, 180);
-  text("-", b.minus.x + b.size / 2, b.minus.y + b.size / 2);
-  text("+", b.plus.x + b.size / 2, b.plus.y + b.size / 2);
-}
-
-function pointInRect(px, py, r, size) {
-  return px >= r.x && px <= r.x + size && py >= r.y && py <= r.y + size;
+  drawUI();                // settings buttons / gear
 }
 
 function trackReflector() {
@@ -121,11 +101,8 @@ function trackReflector() {
     lockY = avgY;
     locked = true;
 
-    // IMPORTANT:
     // avgY is wrist height in the vertical camera image.
-    // Higher wrist = smaller avgY.
-    // We map smaller avgY to the RIGHT side of the TV.
-
+    // Higher wrist = smaller avgY -> map to the RIGHT side of the TV.
     let mappedX = map(
       avgY,
       video.height * 0.20,  // high wrist
@@ -136,8 +113,6 @@ function trackReflector() {
     );
 
     paddleX = lerp(paddleX, mappedX, 0.75);
-
-    // Fixed paddle height in bottom third
     paddleY = height * 0.84;
   } else {
     locked = false;
@@ -195,6 +170,7 @@ function drawDebugCamera() {
   noFill();
   stroke(locked ? 0 : 255, locked ? 255 : 0, 0);
   strokeWeight(3);
+  rectMode(CORNER);
   rect(x, y, previewW, previewH);
 
   if (locked) {
@@ -216,6 +192,111 @@ function drawDebugCamera() {
   text("LOCK: " + (locked ? "YES" : "NO"), x, y + previewH + 6);
   text("THRESH: " + threshold, x, y + previewH + 24);
 }
+
+// Full-screen raw camera view (game paused) — for aiming the phone and tuning.
+function drawCameraFull() {
+  let vw = video.width || 180;
+  let vh = video.height || 320;
+  let s = min(width / vw, height / vh);   // "contain" fit, keep whole frame visible
+  let dw = vw * s;
+  let dh = vh * s;
+  let ox = (width - dw) / 2;
+  let oy = (height - dh) / 2;
+
+  push();
+  translate(ox + dw, oy);   // mirror horizontally (matches the debug preview)
+  scale(-1, 1);
+  image(video, 0, 0, dw, dh);
+  pop();
+
+  if (locked) {
+    let lx = ox + dw - (lockX / vw) * dw;   // account for mirror
+    let ly = oy + (lockY / vh) * dh;
+    stroke(0, 255, 0);
+    strokeWeight(3);
+    noFill();
+    circle(lx, ly, 30);
+    line(lx - 18, ly, lx + 18, ly);
+    line(lx, ly - 18, lx, ly + 18);
+  }
+
+  noStroke();
+  fill(255, 200);
+  textAlign(CENTER, TOP);
+  textSize(min(width, height) * 0.035);
+  text("CAMERA VIEW   LOCK: " + (locked ? "YES" : "NO") + "   THRESH: " + threshold,
+       width / 2, oy + 8);
+}
+
+// ---------- On-screen settings UI ----------
+
+// Returns the list of tappable buttons for the current state.
+// A gear button is always present (bottom-right); the rest appear to its
+// left only when settings are shown.
+function uiButtons() {
+  let s = min(width, height) * 0.11;
+  let pad = s * 0.28;
+  let y = height - s - pad;
+  let x = width - s - pad;   // rightmost slot = gear
+
+  let btns = [{ id: "gear", label: showSettings ? "x" : "⚙", x: x, y: y, w: s, h: s }];
+
+  if (showSettings) {
+    let items = [
+      { id: "full",  label: "full" },
+      { id: "flip",  label: "flip" },
+      { id: "plus",  label: "+" },
+      { id: "minus", label: "-" },
+      { id: "cam",   label: cameraOnly ? "game" : "cam" }
+    ];
+    for (let it of items) {
+      x -= (s + pad);
+      btns.push({ id: it.id, label: it.label, x: x, y: y, w: s, h: s });
+    }
+  }
+  return btns;
+}
+
+function drawUI() {
+  rectMode(CORNER);
+  textAlign(CENTER, CENTER);
+  for (let b of uiButtons()) {
+    noStroke();
+    if (b.id === "cam" && cameraOnly) fill(0, 170, 90, 210);
+    else fill(255, 45);
+    rect(b.x, b.y, b.w, b.h, 10);
+
+    fill(255, 210);
+    textSize(b.w * (b.label.length > 1 ? 0.30 : 0.5));
+    text(b.label, b.x + b.w / 2, b.y + b.h / 2);
+  }
+}
+
+function doButton(id) {
+  if (id === "gear")       showSettings = !showSettings;
+  else if (id === "cam")   cameraOnly = !cameraOnly;
+  else if (id === "minus") threshold = constrain(threshold - 5, 100, 255);
+  else if (id === "plus")  threshold = constrain(threshold + 5, 100, 255);
+  else if (id === "full")  fullscreen(!fullscreen());
+  else if (id === "flip") {
+    camFacing = (camFacing === "environment") ? "user" : "environment";
+    startCamera(camFacing);
+  }
+}
+
+function handleTap(px, py) {
+  for (let b of uiButtons()) {
+    if (px >= b.x && px <= b.x + b.w && py >= b.y && py <= b.y + b.h) {
+      doButton(b.id);
+      return;
+    }
+  }
+  // Tapping anywhere else goes fullscreen (also satisfies iOS's
+  // "user gesture required" rule to start the camera).
+  fullscreen(true);
+}
+
+// ---------- Game physics ----------
 
 function moveBall() {
   aiX = lerp(aiX, ball.x, 0.055);
@@ -275,33 +356,16 @@ function resetBall() {
   }
 }
 
+// ---------- Input ----------
+
 function keyPressed() {
   if (keyCode === UP_ARROW) threshold += 5;
   if (keyCode === DOWN_ARROW) threshold -= 5;
   threshold = constrain(threshold, 100, 255);
 
-  if (key === "f" || key === "F") {
-    fullscreen(!fullscreen());
-  }
-}
-
-function handleTap(px, py) {
-  let b = thresholdButtons();
-
-  // Tapping a calibration button adjusts the threshold instead of toggling
-  // fullscreen.
-  if (pointInRect(px, py, b.minus, b.size)) {
-    threshold = constrain(threshold - 5, 100, 255);
-    return;
-  }
-  if (pointInRect(px, py, b.plus, b.size)) {
-    threshold = constrain(threshold + 5, 100, 255);
-    return;
-  }
-
-  // Tapping anywhere else goes fullscreen (also satisfies iOS's
-  // "user gesture required" rule to start the camera).
-  fullscreen(true);
+  if (key === "f" || key === "F") fullscreen(!fullscreen());
+  if (key === "c" || key === "C") cameraOnly = !cameraOnly;   // camera view
+  if (key === "h" || key === "H") showSettings = !showSettings; // hide buttons
 }
 
 function touchStarted() {

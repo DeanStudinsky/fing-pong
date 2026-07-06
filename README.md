@@ -39,11 +39,18 @@ Both need **HTTPS** for the iPhone camera to turn on — which GitHub Pages give
    - **Wireless:** open **AirScreen** on the H1, then iPhone Control Center → **Screen Mirroring** → pick it. (Slight lag.)
 4. Place the phone on a tripod/table facing you.
 
+### On-screen settings (both pages)
+A row of buttons sits in the **bottom-right**:
+- **⚙ / x** — the gear **hides/shows** the other buttons so they don't clutter the projected screen.
+- **cam / game** — toggle a **full-screen camera view with no game**, for aiming the phone and checking tracking. Tap again (now labeled "game") to return to play.
+- **full** — toggle fullscreen.
+- Reflective page also has **+ / −** (brightness threshold) and **flip** (rear/front camera).
+- *(Laptop testing keys: `C` = camera view, `H` = hide buttons, `F` = fullscreen; reflective also uses ↑/↓ for threshold.)*
+
 ### Reflective mode (`index.html`)
 - Wear a **bright reflective wristband**; move your wrist to slide the paddle.
-- **Calibrate on the fly:** tap the on-screen **+ / −** buttons (bottom-right) to raise/lower the brightness threshold until the green "LOCK: YES" stays on only for your band.
+- **Calibrate on the fly:** open the **cam** view, then tap **+ / −** until the green crosshair locks only onto your band ("LOCK: YES").
 - Keep bright lights / the projector beam out of the camera's view — they fool brightness tracking.
-- *(On a laptop for testing: ↑/↓ arrows change threshold, `F` toggles fullscreen.)*
 
 ### MoveNet mode (`movenet.html`)
 - No wristband needed — it tracks your **right wrist** directly.
