@@ -1,17 +1,20 @@
+/* ---------- Page: black, fullscreen, no scroll ---------- */
 html, body {
   margin: 0;
   padding: 0;
   height: 100%;
+  height: 100dvh;              /* true fullscreen on iOS Safari */
   background: #000;
   overflow: hidden;            /* no scroll bounce on the projector */
 }
 
+/* ---------- Canvas fills the viewport ---------- */
 canvas {
   display: block;
 }
 
-/* Mobile: kill tap highlights, text selection, and the iOS callout menu
-   so the game feels like a native fullscreen app. */
+/* ---------- Mobile feel: native fullscreen app ---------- */
+/* Kill tap highlights, text selection, and the iOS callout menu. */
 * {
   -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
   -webkit-touch-callout: none;
@@ -20,6 +23,6 @@ canvas {
 }
 
 body {
-  touch-action: none;          /* stop the page from panning under your finger */
+  touch-action: none;          /* no panning under your finger */
   overscroll-behavior: none;
 }

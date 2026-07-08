@@ -4,14 +4,17 @@
     <meta charset="utf-8" />
     <title>Fing Pong — Reflective Wristband</title>
 
-    <!-- Critical for iPhone: correct scaling, no zoom, edge-to-edge fullscreen -->
+    <!-- Edge-to-edge fullscreen, no zoom, respect notch/safe area -->
     <meta name="viewport"
           content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+    <!-- Web-app / fullscreen behavior on iOS + projector -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
 
-    <!-- p5.js from CDN (served over HTTPS by GitHub Pages, so the camera is allowed) -->
+    <!-- p5.js from CDN (HTTPS on GitHub Pages, so the camera is allowed) -->
     <script src="https://cdn.jsdelivr.net/npm/p5@1.11.13/lib/p5.js"></script>
 
     <link rel="stylesheet" type="text/css" href="style.css">
